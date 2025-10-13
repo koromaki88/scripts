@@ -9,4 +9,4 @@ sleep 1
 
 # find & delete files in ~/Pictures created in last 6s
 # this is due to flameshot gui creating duplicate from savePath
-find ~/Pictures -maxdepth 1 -type f -cmin -0.1 -name "Screenshot_*.png" -delete
+find $HOME/Pictures -maxdepth 1 -type f -cmin -0.1 -name "*.png" -delete
