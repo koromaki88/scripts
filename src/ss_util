@@ -1,6 +1,7 @@
 #!/bin/sh
 
-BASE_DIR="/mnt/data/media/images"
+BASE_DIR="$HOME/data/media/images"
+#BASE_DIR="/mnt/data/media/images"
 DIR_PATH="$BASE_DIR/ss_util/$(date +'%Y-%m')"
 FILE_PATH="$DIR_PATH/$(date +'%Y-%m-%d-%H-%M-%S').png"
 
