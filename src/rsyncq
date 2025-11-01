@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# This script assumes that the private key file name is the same as the remote user name
+KEY_BASE_PATH="$HOME/.ssh"
+
+if [ "$#" -lt 3 ]; then
+    echo "Usage:   rsyncq <user@host> <local_source1> [local_source2...] <remote_path>"
+    echo
+    echo "Example: rsyncq youmu@192.168.122.25 file1.txt file2.c /home/youmu/dump/test/"
+    exit 1
+fi
+
+USER_HOST="$1"
+REMOTE_PATH="${!#}"
+LOCAL_SOURCES=("${@:2:$#-2}")
+
+if [[ "$USER_HOST" != *"@"* ]]; then
+    echo "Error: Invalid format for <user@host>."
+    echo "       Must be in the format 'user@host.com' (missing '@')."
+    exit 1
+fi
+
+USER_KEY_NAME=$(echo "$USER_HOST" | cut -d'@' -f1)
+
+if [ -z "$USER_KEY_NAME" ]; then
+    echo "Error: Could not extract username from '$USER_HOST'."
+    echo "       The format must be user@host"
+    exit 1
+fi
+
+KEY_PATH="$KEY_BASE_PATH/$USER_KEY_NAME"
+REMOTE_TARGET="${USER_HOST}:${REMOTE_PATH}"
+
+for src in "${LOCAL_SOURCES[@]}"; do
+    if [ ! -e "$src" ]; then
+        echo "Error: Local source '$src' not found."
+        exit 1
+    fi
+done
+
+if [ ! -f "$KEY_PATH" ]; then
+    echo "Error: SSH key '$KEY_PATH' not found."
+    echo "       (Derived from username '$USER_KEY_NAME')"
+    exit 1
+fi
+
+echo "Source: ${LOCAL_SOURCE[@]}"
+echo "To:     $REMOTE_TARGET"
+echo "Key:    $KEY_PATH"
+echo "----------------------------"
+
+rsync -av -e "ssh -i $KEY_PATH" "${LOCAL_SOURCES[@]}" "$REMOTE_TARGET"
