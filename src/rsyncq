@@ -3,16 +3,26 @@
 # This script assumes that the private key file name is the same as the remote user name
 KEY_BASE_PATH="$HOME/.ssh"
 
-if [ "$#" -lt 3 ]; then
-    echo "Usage:   rsyncq <user@host> <local_source1> [local_source2...] <remote_path>"
+if [ "$#" -lt 4 ]; then
+    echo "Usage:   rsyncq <mode> <user@host> <source1> [source2...] <destination>"
     echo
-    echo "Example: rsyncq youmu@192.168.122.25 file1.txt file2.c /home/youmu/dump/test/"
+    echo "Modes:"
+    echo "  push   Copy local files to remote server"
+    echo "         Example: rsyncq push youmu@host file.txt /home/youmu/"
+    echo "  pull   Copy remote files back to local machine"
+    echo "         Example: rsyncq pull youmu@host /home/youmu/file.txt ./"
     exit 1
 fi
 
-USER_HOST="$1"
-REMOTE_PATH="${!#}"
-LOCAL_SOURCES=("${@:2:$#-2}")
+MODE="$1"
+USER_HOST="$2"
+DESTINATION="${!#}"
+SOURCES=("${@:3:$#-3}")
+
+if [ "$MODE" != "push" ] && [ "$MODE" != "pull" ]; then
+    echo "Error: Invalid mode '$MODE'. Must be 'push' or 'pull'."
+    exit 1
+fi
 
 if [[ "$USER_HOST" != *"@"* ]]; then
     echo "Error: Invalid format for <user@host>."
@@ -29,14 +39,6 @@ if [ -z "$USER_KEY_NAME" ]; then
 fi
 
 KEY_PATH="$KEY_BASE_PATH/$USER_KEY_NAME"
-REMOTE_TARGET="${USER_HOST}:${REMOTE_PATH}"
-
-for src in "${LOCAL_SOURCES[@]}"; do
-    if [ ! -e "$src" ]; then
-        echo "Error: Local source '$src' not found."
-        exit 1
-    fi
-done
 
 if [ ! -f "$KEY_PATH" ]; then
     echo "Error: SSH key '$KEY_PATH' not found."
@@ -44,9 +46,39 @@ if [ ! -f "$KEY_PATH" ]; then
     exit 1
 fi
 
-echo "Source: ${LOCAL_SOURCE[@]}"
-echo "To:     $REMOTE_TARGET"
-echo "Key:    $KEY_PATH"
-echo "----------------------------"
+SSH_OPT="ssh -i $KEY_PATH"
 
-rsync -av -e "ssh -i $KEY_PATH" "${LOCAL_SOURCES[@]}" "$REMOTE_TARGET"
+if [ "$MODE" == "push" ]; then
+    for src in "${SOURCES[@]}"; do
+        if [ ! -e "$src" ]; then
+            echo "Error: Local source '$src' not found."
+            exit 1
+        fi
+    done
+    
+    REMOTE_TARGET="${USER_HOST}:${DESTINATION}"
+
+    echo "Mode:   Push (Local -> Remote)"
+    echo "Source: ${SOURCES[@]}"
+    echo "To:     $REMOTE_TARGET"
+    echo "Key:    $KEY_PATH"
+    echo "----------------------------"
+    
+    rsync -av -e "$SSH_OPT" "${SOURCES[@]}" "$REMOTE_TARGET"
+
+elif [ "$MODE" == "pull" ]; then
+    REMOTE_SOURCES=()
+    for src in "${SOURCES[@]}"; do
+        REMOTE_SOURCES+=("${USER_HOST}:${src}")
+    done
+    
+    LOCAL_TARGET="$DESTINATION"
+
+    echo "Mode:   Pull (Remote -> Local)"
+    echo "Source: ${REMOTE_SOURCES[@]}"
+    echo "To:     $LOCAL_TARGET"
+    echo "Key:    $KEY_PATH"
+    echo "----------------------------"
+    
+    rsync -av -e "$SSH_OPT" "${REMOTE_SOURCES[@]}" "$LOCAL_TARGET"
+fi
