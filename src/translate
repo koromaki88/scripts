@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+text=${1:-$(xclip -o -selection primary 2>/dev/null || wl-paste 2>/dev/null)}
+
+# Check for empty word or special characters
+[[ -z "$text" ]] && notify-send -h string:bgcolor:#bf616a -t 3000 "Invalid input." && exit 0
+
+# URL-encode text
+encoded_text=$(jq -rn --arg x "$text" '$x|@uri')
+
+query=$(curl -s --connect-timeout 5 --max-time 10 "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=$encoded_text")
+
+# Check for connection error (curl exit status stored in $?)
+[ $? -ne 0 ] && notify-send -h string:bgcolor:#bf616a -t 3000 "Connection error." && exit 1
+
+translated=$(echo "$query" | jq -r '.[0] | map(.[0]) | join("")' 2>/dev/null)
+detected_lang=$(echo "$query" | jq -r '.[2]' 2>/dev/null)
+
+# Check for parsing errors
+if [[ -z "$translated" || "$translated" == "null" ]]; then
+    notify-send -h string:bgcolor:#bf616a -t 3000 "Translation failed."
+    exit 0
+fi
+
+# Truncate original text 
+title_text="${text:0:30}"
+[[ ${#text} -gt 30 ]] && title_text="${title_text}..."
+
+# Requires a notification daemon to be installed
+notify-send -t 60000 "$title_text ($detected_lang -> en)" "$translated"
