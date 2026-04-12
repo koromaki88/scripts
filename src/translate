@@ -8,13 +8,14 @@ text=${1:-$(xclip -o -selection primary 2>/dev/null || wl-paste 2>/dev/null)}
 # URL-encode text
 encoded_text=$(jq -rn --arg x "$text" '$x|@uri')
 
-query=$(curl -s --connect-timeout 5 --max-time 10 "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=$encoded_text")
+query=$(curl -s --connect-timeout 5 --max-time 10 "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&dt=rm&dj=1&q=$encoded_text")
 
 # Check for connection error (curl exit status stored in $?)
 [ $? -ne 0 ] && notify-send -h string:bgcolor:#bf616a -t 3000 "Connection error." && exit 1
 
-translated=$(echo "$query" | jq -r '.[0] | map(.[0]) | join("")' 2>/dev/null)
-detected_lang=$(echo "$query" | jq -r '.[2]' 2>/dev/null)
+translated=$(echo "$query" | jq -r '.sentences | map(.trans // empty) | join("")' 2>/dev/null)
+detected_lang=$(echo "$query" | jq -r '.src' 2>/dev/null)
+roman=$(echo "$query" | jq -r '.sentences | map(.src_translit // empty) | join("")' 2>/dev/null)
 
 # Check for parsing errors
 if [[ -z "$translated" || "$translated" == "null" ]]; then
@@ -26,5 +27,10 @@ fi
 title_text="${text:0:30}"
 [[ ${#text} -gt 30 ]] && title_text="${title_text}..."
 
+notification_body="$translated"
+if [[ -n "$roman" && "$roman" != "null" ]]; then
+    notification_body="$translated\n\n$roman"
+fi
+
 # Requires a notification daemon to be installed
-notify-send -t 60000 "$title_text ($detected_lang -> en)" "$translated"
+notify-send -t 60000 "$title_text ($detected_lang -> en)" "$notification_body"
