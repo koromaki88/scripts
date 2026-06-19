@@ -1,0 +1,17 @@
+#!/bin/bash
+
+WID=$(xdotool search --name "Minecraft" | head -n 1)
+
+if [ -z "$WID" ]; then
+    echo "Minecraft window not found"
+    exit 1
+fi
+
+echo "Autoclick active in Window ID: $WID"
+
+while true; do
+    # 1 = left click
+    # 3 = right click
+    xdotool click --window "$WID" 1
+    sleep 0.625
+done
